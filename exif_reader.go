@@ -33,11 +33,11 @@ func (ExifReader) ReadTimestamp(dir string, file os.FileInfo) (bool, time.Time, 
 	x, err := exif.Decode(f)
 	if err != nil {
 		// should be supported - failed to read file metadata
-		return false, time.Time{}, fmt.Errorf("%s : failed to extract exif date: %v\n", fpath, err)
+		return false, time.Time{}, fmt.Errorf("%s : failed to extract exif date: %v", fpath, err)
 	}
 	tm, err := x.DateTime()
 	if err != nil {
-		return false, time.Time{}, fmt.Errorf("%s : Failed to extract exif date: %v\n", fpath, err)
+		return false, time.Time{}, fmt.Errorf("%s : Failed to extract exif date: %v", fpath, err)
 	}
 	return true, tm, nil
 }

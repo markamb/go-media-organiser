@@ -63,6 +63,11 @@ func ProcessDirectory(srcDir string, baseDestDir string) {
 		var info MediaInfo
 		var err error
 
+		if !isVideo(file.Name()) && !isImage(file.Name()) {
+			fmt.Printf("SKIPPING file %s: unsupported file type\n", path.Join(srcDir, file.Name()))
+			continue
+		}
+
 		if info.Time, info.TimeSource, err = getTimestamp(srcDir, file); err != nil {
 			fmt.Printf("SKIPPING file %s: cannot extract date: %v\n", path.Join(srcDir, file.Name()), err)
 			continue
@@ -72,12 +77,11 @@ func ProcessDirectory(srcDir string, baseDestDir string) {
 		destDir := newDestinationDir(baseDestDir, info) // full directory to move  file to
 		destFileName := newFileName(file.Name(), info)
 		dest := path.Join(destDir, destFileName)
-		fmt.Printf("[%.7s] %s\t\t => %s (%v)\n", info.TimeSource, sourcePath, dest, info.Time)
+		fmt.Printf("[%s] %s\t\t => %s (%v)\n", info.TimeSource, sourcePath, dest, info.Time)
 	}
 }
 
 func getTimestamp(srcDir string, file os.FileInfo) (time.Time, string, error) {
-
 	var errorStr string
 	// Iterate over the timeStamp readers in order until one is successful
 	for _, r := range timestampReaders {
@@ -116,25 +120,50 @@ func getSuffix(fname string) string {
 	return suffix
 }
 
-func getPrefix(fname string) string {
-	var isImage = map[string]struct{}{
+func isImage(name string) bool {
+	var imageExt = map[string]struct{}{
 		"jpg":  struct{}{},
 		"jpeg": struct{}{},
 		"tif":  struct{}{},
 		"gif":  struct{}{},
 	}
 
-	var isVideo = map[string]struct{}{
+	ext := strings.ToLower(path.Ext(name))
+	if len(ext) == 0 {
+		return false
+	}
+
+	if _, ok := imageExt[ext[1:]]; ok {
+		// example: ".jpg"
+		return true
+	}
+	return false
+}
+
+func isVideo(name string) bool {
+	var videoExt = map[string]struct{}{
 		"mov": struct{}{},
 		"mpg": struct{}{},
 		"mp4": struct{}{},
 	}
 
-	fname = strings.ToLower(fname)
-	if _, ok := isImage[fname]; ok {
+	ext := strings.ToLower(path.Ext(name))
+	if len(ext) == 0 {
+		return false
+	}
+
+	if _, ok := videoExt[ext[1:]]; ok {
+		// example: ".mov"
+		return true
+	}
+	return false
+}
+
+func getPrefix(name string) string {
+	if isImage(name) {
 		return "img_"
 	}
-	if _, ok := isVideo[fname]; ok {
+	if isVideo(name) {
 		return "vid_"
 	}
 	return ""
