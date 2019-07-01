@@ -77,7 +77,13 @@ func ProcessDirectory(srcDir string, baseDestDir string) {
 		destDir := newDestinationDir(baseDestDir, info) // full directory to move  file to
 		destFileName := newFileName(file.Name(), info)
 		dest := path.Join(destDir, destFileName)
-		fmt.Printf("[%s] %s\t\t => %s (%v)\n", info.TimeSource, sourcePath, dest, info.Time)
+		fmt.Printf("[%s] %s\t\t => %s (%v)...", info.TimeSource, sourcePath, dest, info.Time)
+		actualDest, err := copyFile(sourcePath, dest)
+		if err != nil {
+			fmt.Printf("FAILED copy to %s (%v)\n", actualDest, err)
+		} else {
+			fmt.Println(" (%s) DONE", actualDest)
+		}
 	}
 }
 
