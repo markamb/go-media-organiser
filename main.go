@@ -10,13 +10,16 @@ import (
 )
 
 type Config struct {
-	// SourceDirectories lists all directories to be scanned for media files to be moved
-	SourceDirectories []string
+	// SourceDirectory is the directory to be scanned for media files to be moved
+	SourceDirectory string
 	// DestinationDirectory specifies the root directory for media files to be moved to
 	// Files are arranged by date under this location. Example:
 	//   <rootdir>/2019/2019-02 February
 	//   <rootdir>/2019/2019-03 March
 	DestinationDirectory string
+	// ArchiveDirectory is an optional location to move file into after copying and renaming
+	// The original filename is not changed in the move
+	ArchiveDirectory string
 }
 
 type MediaInfo struct {
@@ -48,20 +51,23 @@ var timestampReaders = []MediaTimestampReader{
 
 func main() {
 	var config = defaultConfig
-	for _, src := range config.SourceDirectories {
-		ProcessDirectory(src, config.DestinationDirectory)
-	}
+	ProcessDirectory(config.SourceDirectory, config.DestinationDirectory, config.ArchiveDirectory)
 }
 
-func ProcessDirectory(srcDir string, baseDestDir string) {
+func ProcessDirectory(srcDir string, baseDestDir string, archiveDir string) {
 
 	files, err := ioutil.ReadDir(srcDir)
 	if err != nil {
 		panic(err)
 	}
+	archiveCreated := false
 	for _, file := range files {
 		var info MediaInfo
 		var err error
+
+		if skipFile(file.Name()) {
+			continue
+		}
 
 		if !isVideo(file.Name()) && !isImage(file.Name()) {
 			fmt.Printf("SKIPPING file %s: unsupported file type\n", path.Join(srcDir, file.Name()))
@@ -80,10 +86,24 @@ func ProcessDirectory(srcDir string, baseDestDir string) {
 		fmt.Printf("[%s] %s\t\t => %s (%v)...", info.TimeSource, sourcePath, dest, info.Time)
 		actualDest, err := copyFile(sourcePath, dest)
 		if err != nil {
+			// skip this file and leave it where it is
 			fmt.Printf("FAILED copy to %s (%v)\n", actualDest, err)
-		} else {
-			fmt.Println(" (%s) DONE", actualDest)
+			continue
 		}
+		if archiveDir != "" {
+			// if an archive directory is supplied we move the original file into it
+			if !archiveCreated {
+				archiveCreated = true
+				archiveDir = path.Join(archiveDir, time.Now().Format("2006-01-02_150405"))
+				if err := os.MkdirAll(archiveDir, os.ModePerm); err != nil {
+					panic(err)
+				}
+			}
+			if err := os.Rename(sourcePath, path.Join(archiveDir, file.Name())); err != nil {
+				panic(fmt.Sprintf(": Failed to move %s to %s (%v)", sourcePath, archiveDir, err))
+			}
+		}
+		fmt.Println(" DONE")
 	}
 }
 
@@ -124,6 +144,20 @@ func newFileName(currentName string, fm MediaInfo) string {
 func getSuffix(fname string) string {
 	suffix := path.Ext(fname)
 	return suffix
+}
+
+func skipFile(name string) bool {
+	if len(name) == 0 {
+		// unlikely, but...
+		return true
+	}
+	if strings.HasPrefix(name, ".") {
+		return true
+	}
+	if strings.ToLower(path.Ext(name)) == ".ini" {
+		return true
+	}
+	return false
 }
 
 func isImage(name string) bool {
