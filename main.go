@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"strings"
@@ -49,13 +50,21 @@ var timestampReaders = []MediaTimestampReader{
 	FileAttributeReader{},
 }
 
+const ApplicationName = "go-media-organiser"
+
+var logger *log.Logger
+
 func main() {
 	var config = defaultConfig
+	l, logFile := createLogger(&config)
+	defer logFile.Close()
+	logger = l
 	ProcessDirectory(config.SourceDirectory, config.DestinationDirectory, config.ArchiveDirectory)
 }
 
 func ProcessDirectory(srcDir string, baseDestDir string, archiveDir string) {
 
+	logger.Printf("**** Running %s aginst directory %s ****\n", ApplicationName, srcDir)
 	files, err := ioutil.ReadDir(srcDir)
 	if err != nil {
 		panic(err)
@@ -70,12 +79,12 @@ func ProcessDirectory(srcDir string, baseDestDir string, archiveDir string) {
 		}
 
 		if !isVideo(file.Name()) && !isImage(file.Name()) {
-			fmt.Printf("SKIPPING file %s: unsupported file type\n", path.Join(srcDir, file.Name()))
+			logger.Printf("SKIPPING file %s: unsupported file type\n", path.Join(srcDir, file.Name()))
 			continue
 		}
 
 		if info.Time, info.TimeSource, err = getTimestamp(srcDir, file); err != nil {
-			fmt.Printf("SKIPPING file %s: cannot extract date: %v\n", path.Join(srcDir, file.Name()), err)
+			logger.Printf("SKIPPING file %s: cannot extract date: %v\n", path.Join(srcDir, file.Name()), err)
 			continue
 		}
 
@@ -83,11 +92,11 @@ func ProcessDirectory(srcDir string, baseDestDir string, archiveDir string) {
 		destDir := newDestinationDir(baseDestDir, info) // full directory to move  file to
 		destFileName := newFileName(file.Name(), info)
 		dest := path.Join(destDir, destFileName)
-		fmt.Printf("[%s] %s\t\t => %s (%v)...", info.TimeSource, sourcePath, dest, info.Time)
+		logger.Printf("[%s] %s\t\t => %s (%v)...", info.TimeSource, sourcePath, dest, info.Time)
 		actualDest, err := copyFile(sourcePath, dest)
 		if err != nil {
 			// skip this file and leave it where it is
-			fmt.Printf("FAILED copy to %s (%v)\n", actualDest, err)
+			logger.Printf("FAILED copy to %s (%v)\n", actualDest, err)
 			continue
 		}
 		if archiveDir != "" {
@@ -96,15 +105,36 @@ func ProcessDirectory(srcDir string, baseDestDir string, archiveDir string) {
 				archiveCreated = true
 				archiveDir = path.Join(archiveDir, time.Now().Format("2006-01-02_150405"))
 				if err := os.MkdirAll(archiveDir, os.ModePerm); err != nil {
-					panic(err)
+					logger.Panic(err)
 				}
+				logger.Printf("Creating archive directory for original files: %s", archiveDir)
 			}
 			if err := os.Rename(sourcePath, path.Join(archiveDir, file.Name())); err != nil {
-				panic(fmt.Sprintf(": Failed to move %s to %s (%v)", sourcePath, archiveDir, err))
+				logger.Panicf(": Failed to move %s to %s (%v)", sourcePath, archiveDir, err)
 			}
 		}
-		fmt.Println(" DONE")
 	}
+	logger.Println("DONE")
+}
+
+func createLogger(config *Config) (*log.Logger, *os.File) {
+	logDir := os.Getenv("LOGDIR")
+	if logDir == "" {
+		logDir = os.Getenv("TEMP")
+	}
+	if logDir == "" {
+		panic("Please provide LOGDIR or TEMP environment variable")
+	}
+	logFileName := fmt.Sprintf("%s/%s.log", logDir, ApplicationName)
+	logFile, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
+	if err != nil {
+		panic(fmt.Sprintf("failed to open log file %s: %s", logFileName, err))
+	}
+	logger := log.New(logFile,
+		"INFO: ",
+		log.Ldate|log.Ltime|log.Lshortfile)
+	return logger, logFile
 }
 
 func getTimestamp(srcDir string, file os.FileInfo) (time.Time, string, error) {
