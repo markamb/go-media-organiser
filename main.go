@@ -13,12 +13,12 @@ import (
 type Config struct {
 	// SourceDirectory is the directory to be scanned for media files to be moved
 	SourceDirectory string
-	// DestinationDirectory specifies the root directory for media files to be moved to
-	// Files are arranged by date under this location. Example:
+	// LibraryDirectory specifies a list of root directories for media files to be moved to
+	// Files are arranged by date under each location. Example:
 	//   <rootdir>/2019/2019-02 February
 	//   <rootdir>/2019/2019-03 March
-	DestinationDirectory string
-	// ArchiveDirectory is an optional location to move file into after copying and renaming
+	Destinations []string
+	// CopyDirectory is an optional location to move file into after copying and renaming
 	// The original filename is not changed in the move
 	ArchiveDirectory string
 }
@@ -59,10 +59,10 @@ func main() {
 	l, logFile := createLogger(&config)
 	defer logFile.Close()
 	logger = l
-	ProcessDirectory(config.SourceDirectory, config.DestinationDirectory, config.ArchiveDirectory)
+	ProcessDirectory(config.SourceDirectory, config.Destinations, config.ArchiveDirectory)
 }
 
-func ProcessDirectory(srcDir string, baseDestDir string, archiveDir string) {
+func ProcessDirectory(srcDir string, destinations []string, archiveDir string) {
 
 	logger.Printf("**** Running %s aginst directory %s ****\n", ApplicationName, srcDir)
 	files, err := ioutil.ReadDir(srcDir)
@@ -89,15 +89,17 @@ func ProcessDirectory(srcDir string, baseDestDir string, archiveDir string) {
 		}
 
 		sourcePath := path.Join(srcDir, file.Name())
-		destDir := newDestinationDir(baseDestDir, info) // full directory to move  file to
 		destFileName := newFileName(file.Name(), info)
-		dest := path.Join(destDir, destFileName)
-		logger.Printf("[%s] %s\t\t => %s (%v)...", info.TimeSource, sourcePath, dest, info.Time)
-		actualDest, err := copyFile(sourcePath, dest)
-		if err != nil {
-			// skip this file and leave it where it is
-			logger.Printf("FAILED copy to %s (%v)\n", actualDest, err)
-			continue
+		for _, destDir := range destinations {
+			destDir := newDestinationDir(destDir, info) // full directory to move  file to
+			dest := path.Join(destDir, destFileName)
+			logger.Printf("[%s] %s\t\t => %s (%v)...", info.TimeSource, sourcePath, dest, info.Time)
+			actualDest, err := copyFile(sourcePath, dest)
+			if err != nil {
+				// skip this file and leave it where it is
+				logger.Printf("FAILED copy to %s (%v)\n", actualDest, err)
+				continue
+			}
 		}
 		if archiveDir != "" {
 			// if an archive directory is supplied we move the original file into it
