@@ -198,6 +198,7 @@ func isImage(name string) bool {
 		"jpeg": struct{}{},
 		"tif":  struct{}{},
 		"gif":  struct{}{},
+		"png":  struct{}{},
 	}
 
 	ext := strings.ToLower(path.Ext(name))
