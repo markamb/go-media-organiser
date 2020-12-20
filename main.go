@@ -10,14 +10,19 @@ import (
 	"time"
 )
 
-type Config struct {
-	// SourceDirectory is the directory to be scanned for media files to be moved
-	SourceDirectory string
-	// LibraryDirectory specifies a list of root directories for media files to be moved to
+type Source struct {
+	// Source is a directories to be scanned for media files to be moved
+	Source string
+	// Destinations specifies a list of root directories for media files to be moved to
 	// Files are arranged by date under each location. Example:
 	//   <rootdir>/2019/2019-02 February
 	//   <rootdir>/2019/2019-03 March
 	Destinations []string
+}
+
+type Config struct {
+	// SourceConfig lists a media source to be scanned and where to copy the files
+	SourceConfig []Source
 	// CopyDirectory is an optional location to move file into after copying and renaming
 	// The original filename is not changed in the move
 	ArchiveDirectory string
@@ -59,7 +64,9 @@ func main() {
 	l, logFile := createLogger(&config)
 	defer logFile.Close()
 	logger = l
-	ProcessDirectory(config.SourceDirectory, config.Destinations, config.ArchiveDirectory)
+	for _, src := range config.SourceConfig {
+		ProcessDirectory(src.Source, src.Destinations, config.ArchiveDirectory)
+	}
 }
 
 func ProcessDirectory(srcDir string, destinations []string, archiveDir string) {
