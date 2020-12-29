@@ -3,12 +3,6 @@ package main
 var defaultConfig = Config{
 	SourceConfig: []Source{
 		{
-			Source: "D:/Dropbox/Camera Uploads",
-			Destinations: []string{
-				"D:/Dropbox/Shared/Pictures/Album",
-			},
-		},
-		{
 			Source: "D:/Home/Mark/OneDrive/Pictures/Camera Roll",
 			Destinations: []string{
 				"D:/Drive/Photo Uploads",
