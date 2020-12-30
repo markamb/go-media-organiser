@@ -12,20 +12,22 @@ import (
 
 type Source struct {
 	// Source is a directories to be scanned for media files to be moved
-	Source string
+	Source string `json:"source"`
 	// Destinations specifies a list of root directories for media files to be moved to
 	// Files are arranged by date under each location. Example:
 	//   <rootdir>/2019/2019-02 February
 	//   <rootdir>/2019/2019-03 March
-	Destinations []string
+	Destinations []string `json:"destinations"`
 }
 
 type Config struct {
 	// SourceConfig lists a media source to be scanned and where to copy the files
-	SourceConfig []Source
+	SourceConfig []Source `json:"source"`
 	// CopyDirectory is an optional location to move file into after copying and renaming
 	// The original filename is not changed in the move
-	ArchiveDirectory string
+	ArchiveDirectory string `json:"archive"`
+	// LogToFile caused status to be logged to a file. If false, logging is to stdout.
+	LogToFile bool `json:"logToFile"`
 }
 
 type MediaInfo struct {
@@ -62,7 +64,9 @@ var logger *log.Logger
 func main() {
 	var config = defaultConfig
 	l, logFile := createLogger(&config)
-	defer logFile.Close()
+	if logFile != nil {
+		defer logFile.Close()
+	}
 	logger = l
 	for _, src := range config.SourceConfig {
 		ProcessDirectory(src.Source, src.Destinations, config.ArchiveDirectory)
@@ -71,7 +75,7 @@ func main() {
 
 func ProcessDirectory(srcDir string, destinations []string, archiveDir string) {
 
-	logger.Printf("**** Running %s aginst directory %s ****\n", ApplicationName, srcDir)
+	logger.Printf("**** Running %s against directory %s ****\n", ApplicationName, srcDir)
 	files, err := ioutil.ReadDir(srcDir)
 	if err != nil {
 		panic(err)
@@ -101,10 +105,14 @@ func ProcessDirectory(srcDir string, destinations []string, archiveDir string) {
 			destDir := newDestinationDir(destDir, info) // full directory to move  file to
 			dest := path.Join(destDir, destFileName)
 			logger.Printf("[%s] %s\t\t => %s (%v)...", info.TimeSource, sourcePath, dest, info.Time)
-			actualDest, err := copyFile(sourcePath, dest)
+			copied, actualDest, err := copyFile(sourcePath, dest)
 			if err != nil {
 				// skip this file and leave it where it is
 				logger.Printf("FAILED copy to %s (%v)\n", actualDest, err)
+				continue
+			}
+			if !copied {
+				logger.Printf("Skipping file as already exists: %s\n", sourcePath)
 				continue
 			}
 		}
@@ -127,6 +135,10 @@ func ProcessDirectory(srcDir string, destinations []string, archiveDir string) {
 }
 
 func createLogger(config *Config) (*log.Logger, *os.File) {
+	if !config.LogToFile {
+		return log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile), nil
+	}
+
 	logDir := os.Getenv("LOGDIR")
 	if logDir == "" {
 		logDir = os.Getenv("TEMP")
@@ -140,10 +152,7 @@ func createLogger(config *Config) (*log.Logger, *os.File) {
 	if err != nil {
 		panic(fmt.Sprintf("failed to open log file %s: %s", logFileName, err))
 	}
-	logger := log.New(logFile,
-		"INFO: ",
-		log.Ldate|log.Ltime|log.Lshortfile)
-	return logger, logFile
+	return log.New(logFile, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile), logFile
 }
 
 func getTimestamp(srcDir string, file os.FileInfo) (time.Time, string, error) {

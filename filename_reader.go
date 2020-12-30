@@ -28,6 +28,10 @@ func (FileNameReader) ReadTimestamp(dir string, file os.FileInfo) (bool, time.Ti
 		{`^vid_\d{8}_\d{6}`, "vid_20060102_150405"},                  // Pixel format
 		{`^img_\d{8}_\d{6}`, "img_20060102_150405"},                  // Pixel format
 		{`^pano_\d{8}_\d{6}`, "pano_20060102_150405"},                // Pixel format
+		{`^img_\d{4}_\d{2}_\d{2}_\d{6}`, "img_2006_01_02_150405"},    // My Format
+		{`^vid_\d{4}_\d{2}_\d{2}_\d{6}`, "vid_2006_01_02_150405"},    // My Format
+		{`^\d{8}_\d{2}_\d{2}_\d{9}_iOS`, "20060102_150405000_iOS"},   // OneDrive IOS
+		{`^PXL_\d{8}_\d{2}_\d{2}_\d{9}`, "PXL_20060102_150405000"},   // OneDrive Pixel
 	}
 
 	// extract the potential date time part of a file name using a regEx and try to parse it

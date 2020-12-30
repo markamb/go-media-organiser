@@ -10,11 +10,12 @@ var defaultConfig = Config{
 			},
 		},
 		{
-			Source: "D:/Home/Mark/OneDrive/zzz Alix Photo Uploads",
+			Source: "D:/Home/Mark/OneDrive/z Alix Camera Roll",
 			Destinations: []string{
 				"D:/Home/Mark/OneDrive/1. Shared [AM]/Photo Album",
 			},
 		},
 	},
 	ArchiveDirectory: "D:/Backups/Photos",
+	LogToFile:        true,
 }
